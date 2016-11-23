@@ -2,6 +2,16 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// package canbus provides high-level access to CAN bus sockets.
+//
+// A typical usage might look like:
+//
+//  sck, err := canbus.New()
+//  err = sck.Bind("vcan0")
+//  for {
+//      id, data, err := sck.Recv()
+//  }
+//
 package canbus
 
 import (
