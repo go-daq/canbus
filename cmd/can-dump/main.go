@@ -74,7 +74,7 @@ Examples:
 			log.Fatalf("recv error: %v\n", err)
 		}
 		ascii := strings.ToUpper(hex.Dump(msg))
-		ascii = strings.Replace(ascii, blank, "", -1)
-		fmt.Printf("%7s  %03x %s", sck.Name(), id, ascii)
+		ascii = strings.TrimRight(strings.Replace(ascii, blank, "", -1), "\n")
+		fmt.Printf("%7s  %03x %s\n", sck.Name(), id, ascii)
 	}
 }

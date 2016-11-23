@@ -80,6 +80,7 @@ func (sck *Socket) Send(id uint32, data []byte) (int, error) {
 		return 0, errDataTooBig
 	}
 
+	id &= unix.CAN_SFF_MASK
 	var frame [frameSize]byte
 	binary.LittleEndian.PutUint32(frame[:4], id)
 	frame[4] = byte(len(data))
@@ -102,6 +103,7 @@ func (sck *Socket) Recv() (id uint32, data []byte, err error) {
 	}
 
 	id = binary.LittleEndian.Uint32(frame[:4])
+	id &= unix.CAN_SFF_MASK
 	data = make([]byte, frame[4])
 	copy(data, frame[8:])
 	return id, data, nil
