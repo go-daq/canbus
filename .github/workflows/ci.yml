@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * 1-5'
+
+env:
+  GOPROXY: "https://proxy.golang.org"
+  TAGS: "-tags=ci"
+  COVERAGE: "-coverpkg=github.com/go-daq/canbus/..."
+
+jobs:
+
+  build:
+    name: Build
+    strategy:
+      matrix:
+        go-version: [1.19.x, 1.18.x]
+        platform: [ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go-version }}
+ 
+    - name: Setup Git for Windows
+      run: |
+        git config --global core.autocrlf false
+        git config --global core.eol lf
+
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+
+    - name: Cache-Go
+      uses: actions/cache@v3
+      with:
+        # In order:
+        # * Module download cache
+        # * Build cache (Linux)
+        # * Build cache (Mac)
+        # * Build cache (Windows)
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+          ~/Library/Caches/go-build
+          '%LocalAppData%\go-build'
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+    - name: Install Linux packages
+      if: matrix.platform == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -qq can-utils
+        sudo modprobe vcan
+        sudo ip link add dev vcan0 type vcan
+        sudo ip link set up vcan0
+    
+    - name: Build-Linux-32b
+      if: matrix.platform == 'ubuntu-latest'
+      run: |
+        GOARCH=386   go install -v $TAGS,cross_compile ./...
+    - name: Build-Linux-64b
+      if: matrix.platform == 'ubuntu-latest'
+      run: |
+        GOARCH=amd64 go install -v $TAGS ./...       
+    - name: Build-Windows
+      if: matrix.platform == 'windows-latest'
+      run: |
+        go install -v $TAGS ./...
+    - name: Build-Darwin
+      if: matrix.platform == 'macos-latest'
+      run: |
+        go install -v $TAGS ./...
+    - name: Test Linux
+      if: matrix.platform == 'ubuntu-latest'
+      run: |
+        go run ./ci/run-tests.go $TAGS -race $COVERAGE
+    - name: Test Windows
+      if: matrix.platform == 'windows-latest'
+      run: |
+        go run ./ci/run-tests.go $TAGS
+    - name: Test Darwin
+      if: matrix.platform == 'macos-latest'
+      run: |
+        go run ./ci/run-tests.go $TAGS
+    - name: static-check
+      uses: dominikh/staticcheck-action@v1.2.0
+      with:
+        install-go: false
+        cache-key: ${{ matrix.platform }}
+        version: "2022.1"
+    - name: Upload-Coverage
+      if: matrix.platform == 'ubuntu-latest'
+      uses: codecov/codecov-action@v2
