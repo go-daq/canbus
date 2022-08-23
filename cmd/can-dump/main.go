@@ -6,13 +6,12 @@
 //
 // Usage of can-dump:
 //
-//  can-dump [options] <CAN interface>
-//    (use CTRL-C to terminate can-dump)
+//	can-dump [options] <CAN interface>
+//	  (use CTRL-C to terminate can-dump)
 //
 // Examples:
 //
-//   can-dump vcan0
-//
+//	can-dump vcan0
 package main
 
 import (

@@ -6,15 +6,14 @@
 //
 // Usage of can-send:
 //
-//   can-send [options] <CAN interface> <CAN frame>
+//	can-send [options] <CAN interface> <CAN frame>
 //
 // where <CAN frame> is of the form: <ID-hex>#<frame data-hex>.
 //
 // Examples:
 //
-//  can-send vcan0 f12#1122334455667788
-//  can-send vcan0 ffa#deadbeef
-//
+//	can-send vcan0 f12#1122334455667788
+//	can-send vcan0 ffa#deadbeef
 package main
 
 import (
