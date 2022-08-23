@@ -6,12 +6,11 @@
 //
 // A typical usage might look like:
 //
-//  sck, err := canbus.New()
-//  err = sck.Bind("vcan0")
-//  for {
-//      id, data, err := sck.Recv()
-//  }
-//
+//	sck, err := canbus.New()
+//	err = sck.Bind("vcan0")
+//	for {
+//	    id, data, err := sck.Recv()
+//	}
 package canbus
 
 import (
@@ -40,9 +39,10 @@ func New() (*Socket, error) {
 
 // Socket is a high-level representation of a CANBus socket.
 type Socket struct {
-	iface *net.Interface
-	addr  *unix.SockaddrCAN
-	dev   device
+	iface   *net.Interface
+	addr    *unix.SockaddrCAN
+	dev     device
+	rfilter []unix.CanFilter
 }
 
 // Name returns the device name the socket is bound to.
@@ -61,7 +61,8 @@ func (sck *Socket) Close() error {
 // Bind binds the socket on the CAN bus with the given address.
 //
 // Example:
-//  err = sck.Bind("vcan0")
+//
+//	err = sck.Bind("vcan0")
 func (sck *Socket) Bind(addr string) error {
 	iface, err := net.InterfaceByName(addr)
 	if err != nil {
@@ -72,6 +73,13 @@ func (sck *Socket) Bind(addr string) error {
 	sck.addr = &unix.SockaddrCAN{Ifindex: sck.iface.Index}
 
 	return unix.Bind(sck.dev.fd, sck.addr)
+}
+
+// ApplyFilters sets the CAN_RAW_FILTER option of the socket and stores the new filters
+// in the Socket object for use by other methods such as Recv.
+func (sck *Socket) ApplyFilters(filters []unix.CanFilter) {
+	unix.SetsockoptCanRawFilter(sck.dev.fd, unix.SOL_CAN_RAW, unix.CAN_RAW_FILTER, filters)
+	sck.rfilter = filters
 }
 
 // Send sends data with a CAN_frame id to the CAN bus.
