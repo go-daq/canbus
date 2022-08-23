@@ -100,8 +100,7 @@ func (sck *Socket) Send(id uint32, idMask uint32, data []byte) (int, error) {
 
 // Recv receives data from the CAN socket.
 // id is the CAN_frame id the data was originated from.
-// idMask should be a mask such as unix.CAN_EFF_MASK.
-func (sck *Socket) Recv(idMask uint32) (id uint32, data []byte, err error) {
+func (sck *Socket) Recv() (id uint32, data []byte, err error) {
 	var frame [frameSize]byte
 	n, err := io.ReadFull(sck.dev, frame[:])
 	if err != nil {
@@ -113,7 +112,12 @@ func (sck *Socket) Recv(idMask uint32) (id uint32, data []byte, err error) {
 	}
 
 	id = binary.LittleEndian.Uint32(frame[:4])
-	id &= idMask
+	for _, filter := range sck.rfilter {
+		if id&filter.Mask == filter.Id&filter.Mask {
+			id &= filter.Mask
+			break
+		}
+	}
 	data = make([]byte, frame[4])
 	copy(data, frame[8:])
 	return id, data, nil
