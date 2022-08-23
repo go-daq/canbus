@@ -124,6 +124,8 @@ func (d device) Write(data []byte) (int, error) {
 const frameSize = unsafe.Sizeof(frame{})
 
 // frame is a can_frame.
+//
+//lint:ignore U1000 frame is actually used.
 type frame struct {
 	ID   uint32
 	Len  byte

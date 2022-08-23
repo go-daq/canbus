@@ -47,9 +47,8 @@ func TestSocket(t *testing.T) {
 			msg[0] = byte(i)
 			_, err := w.Send(ID, msg)
 			if err != nil {
-				t.Fatalf("error send[%d]: %v\n", i, err)
+				t.Errorf("error send[%d]: %v\n", i, err)
 			}
-
 		}
 	}()
 
