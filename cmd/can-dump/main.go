@@ -68,12 +68,12 @@ Examples:
 
 	var blank = strings.Repeat(" ", 24)
 	for {
-		id, msg, err := sck.Recv()
+		msg, err := sck.Recv()
 		if err != nil {
 			log.Fatalf("recv error: %v\n", err)
 		}
-		ascii := strings.ToUpper(hex.Dump(msg))
+		ascii := strings.ToUpper(hex.Dump(msg.Data))
 		ascii = strings.TrimRight(strings.Replace(ascii, blank, "", -1), "\n")
-		fmt.Printf("%7s  %03x %s\n", sck.Name(), id, ascii)
+		fmt.Printf("%7s  %03x %s\n", sck.Name(), msg.ID, ascii)
 	}
 }

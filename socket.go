@@ -2,15 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// package canbus provides high-level access to CAN bus sockets.
-//
-// A typical usage might look like:
-//
-//	sck, err := canbus.New()
-//	err = sck.Bind("vcan0")
-//	for {
-//	    id, data, err := sck.Recv()
-//	}
 package canbus
 
 import (
@@ -18,7 +9,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
@@ -74,39 +64,66 @@ func (sck *Socket) Bind(addr string) error {
 	return unix.Bind(sck.dev.fd, sck.addr)
 }
 
-// Send sends data with a CAN_frame id to the CAN bus.
-func (sck *Socket) Send(id uint32, data []byte) (int, error) {
-	if len(data) > 8 {
+// Send sends the provided frame on the CAN bus.
+func (sck *Socket) Send(msg Frame) (int, error) {
+	if len(msg.Data) > 8 {
 		return 0, errDataTooBig
 	}
 
-	id &= unix.CAN_SFF_MASK
+	switch msg.Kind {
+	case SFF:
+		msg.ID &= unix.CAN_SFF_MASK
+	case EFF:
+		msg.ID &= unix.CAN_EFF_MASK
+		msg.ID |= unix.CAN_EFF_FLAG
+	case RTR:
+		msg.ID &= unix.CAN_EFF_MASK
+		msg.ID |= unix.CAN_RTR_FLAG
+	case ERR:
+		msg.ID &= unix.CAN_ERR_MASK
+		msg.ID |= unix.CAN_ERR_FLAG
+	}
+
 	var frame [frameSize]byte
-	binary.LittleEndian.PutUint32(frame[:4], id)
-	frame[4] = byte(len(data))
-	copy(frame[8:], data)
+	binary.LittleEndian.PutUint32(frame[:4], msg.ID)
+	frame[4] = byte(len(msg.Data))
+	copy(frame[8:], msg.Data)
 
 	return sck.dev.Write(frame[:])
 }
 
 // Recv receives data from the CAN socket.
-// id is the CAN_frame id the data was originated from.
-func (sck *Socket) Recv() (id uint32, data []byte, err error) {
+func (sck *Socket) Recv() (msg Frame, err error) {
 	var frame [frameSize]byte
 	n, err := io.ReadFull(sck.dev, frame[:])
 	if err != nil {
-		return id, data, err
+		return msg, err
 	}
 
 	if n != len(frame) {
-		return id, data, io.ErrUnexpectedEOF
+		return msg, io.ErrUnexpectedEOF
 	}
 
-	id = binary.LittleEndian.Uint32(frame[:4])
-	id &= unix.CAN_SFF_MASK
-	data = make([]byte, frame[4])
-	copy(data, frame[8:])
-	return id, data, nil
+	msg.ID = binary.LittleEndian.Uint32(frame[:4])
+	switch {
+	case msg.ID&unix.CAN_EFF_FLAG != 0:
+		msg.Kind = EFF
+		msg.ID &= unix.CAN_EFF_MASK
+	case msg.ID&unix.CAN_ERR_FLAG != 0:
+		msg.Kind = ERR
+		msg.ID &= unix.CAN_ERR_MASK
+	case msg.ID&unix.CAN_RTR_FLAG != 0:
+		msg.Kind = RTR
+		// FIXME(sbinet): are we sure using the EFF mask makes sense ?
+		msg.ID &= unix.CAN_EFF_MASK
+	default:
+		msg.Kind = SFF
+		msg.ID &= unix.CAN_SFF_MASK
+	}
+
+	msg.Data = make([]byte, frame[4])
+	copy(msg.Data, frame[8:])
+	return msg, nil
 }
 
 type device struct {
@@ -119,16 +136,4 @@ func (d device) Read(data []byte) (int, error) {
 
 func (d device) Write(data []byte) (int, error) {
 	return unix.Write(d.fd, data)
-}
-
-const frameSize = unsafe.Sizeof(frame{})
-
-// frame is a can_frame.
-//
-//lint:ignore U1000 frame is actually used.
-type frame struct {
-	ID   uint32
-	Len  byte
-	_    [3]byte
-	Data [8]byte
 }

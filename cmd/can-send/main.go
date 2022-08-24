@@ -112,7 +112,7 @@ Examples:
 		log.Fatalf("error binding CAN bus socket: %v\n", err)
 	}
 
-	_, err = sck.Send(uint32(id), data)
+	_, err = sck.Send(canbus.Frame{ID: uint32(id), Data: data})
 	if err != nil {
 		log.Fatalf("error sending data: %v\n", err)
 	}
