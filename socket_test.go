@@ -149,3 +149,87 @@ func TestErrLength(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkSend(b *testing.B) {
+	for _, bc := range []struct {
+		kind canbus.Kind
+		data []byte
+	}{
+		{canbus.SFF, []byte("0123")},
+		{canbus.EFF, []byte("01234567")},
+	} {
+		b.Run(bc.kind.String(), func(b *testing.B) {
+			c, err := canbus.New()
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer c.Close()
+
+			err = c.Bind("vcan0")
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			frame := canbus.Frame{Kind: bc.kind, Data: bc.data, ID: 0xff}
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				_, err = c.Send(frame)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkSendRecv(b *testing.B) {
+	for _, bc := range []struct {
+		kind canbus.Kind
+		data []byte
+	}{
+		{canbus.SFF, []byte("0123")},
+		{canbus.EFF, []byte("01234567")},
+	} {
+		b.Run(bc.kind.String(), func(b *testing.B) {
+			w, err := canbus.New()
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer w.Close()
+
+			err = w.Bind("vcan0")
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			r, err := canbus.New()
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer r.Close()
+
+			err = r.Bind("vcan0")
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			frame := canbus.Frame{Kind: bc.kind, Data: bc.data, ID: 0xff}
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				_, err = w.Send(frame)
+				if err != nil {
+					b.Fatal(err)
+				}
+
+				_, err = r.Recv()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
