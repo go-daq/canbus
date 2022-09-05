@@ -7,6 +7,7 @@ package canbus
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 
@@ -40,6 +41,17 @@ func (sck *Socket) Name() string {
 		return "N/A"
 	}
 	return sck.iface.Name
+}
+
+// SetFilters sets the CAN_RAW_FILTER option and applies the provided
+// filters to the underlying socket.
+func (sck *Socket) SetFilters(filters []unix.CanFilter) error {
+	err := unix.SetsockoptCanRawFilter(sck.dev.fd, unix.SOL_CAN_RAW, unix.CAN_RAW_FILTER, filters)
+	if err != nil {
+		return fmt.Errorf("could not set CAN filters: %w", err)
+	}
+
+	return nil
 }
 
 // Close closes the CAN bus socket.

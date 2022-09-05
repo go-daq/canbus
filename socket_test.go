@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/go-daq/canbus"
+	"golang.org/x/sys/unix"
 )
 
 func TestSocket(t *testing.T) {
@@ -147,6 +149,152 @@ func TestErrLength(t *testing.T) {
 		if got, want := err.Error(), "canbus: data too big"; got != want {
 			t.Fatalf("invalid error: got=%q, want=%q", got, want)
 		}
+	}
+}
+
+func TestSetFilters(t *testing.T) {
+	const (
+		endpoint = "vcan0"
+		kind     = canbus.EFF
+	)
+
+	r1, err := canbus.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r1.Close()
+
+	err = r1.SetFilters([]unix.CanFilter{
+		{Id: 0x123, Mask: unix.CAN_SFF_MASK},
+	})
+	if err != nil {
+		t.Fatalf("could not set CAN filters: %+v", err)
+	}
+
+	r2, err := canbus.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r2.Close()
+
+	err = r2.SetFilters([]unix.CanFilter{
+		{Id: 0xddd, Mask: unix.CAN_SFF_MASK},
+	})
+	if err != nil {
+		t.Fatalf("could not set CAN filters: %+v", err)
+	}
+
+	r3, err := canbus.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r3.Close()
+
+	err = r3.SetFilters([]unix.CanFilter{
+		{Id: 0xddd | unix.CAN_INV_FILTER, Mask: unix.CAN_SFF_MASK},
+	})
+	if err != nil {
+		t.Fatalf("could not set CAN filters: %+v", err)
+	}
+
+	r4, err := canbus.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r2.Close()
+
+	w, err := canbus.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	err = r1.Bind(endpoint)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = r2.Bind(endpoint)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = r3.Bind(endpoint)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = r4.Bind(endpoint)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = w.Bind(endpoint)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for i := 0; i < 4; i++ {
+		var id uint32 = 0x123
+		if i%2 == 0 {
+			id = 0xddd
+		}
+		_, err = w.Send(canbus.Frame{
+			ID:   id,
+			Data: []byte(fmt.Sprintf("%02d", i)),
+			Kind: kind,
+		})
+		if err != nil {
+			t.Fatalf("could not send frame %d: %+v", i, err)
+		}
+	}
+
+	recv := func(r *canbus.Socket, n int) ([]string, error) {
+		var msgs []string
+		for i := 0; i < n; i++ {
+			frame, err := r.Recv()
+			if err != nil {
+				return nil, fmt.Errorf("could retrieve frame %d: %+v", i, err)
+			}
+			msgs = append(msgs, string(frame.Data))
+		}
+		return msgs, nil
+	}
+
+	got, err := recv(r1, 2)
+	if err != nil {
+		t.Fatalf("filtered-socket: %+v", err)
+	}
+
+	if got, want := strings.Join(got, ","), "01,03"; got != want {
+		t.Fatalf("r1 filter failed:\ngot= %q\nwant=%q\n", got, want)
+	}
+
+	got, err = recv(r2, 2)
+	if err != nil {
+		t.Fatalf("filtered-socket: %+v", err)
+	}
+
+	if got, want := strings.Join(got, ","), "00,02"; got != want {
+		t.Fatalf("r2 filter failed:\ngot= %q\nwant=%q\n", got, want)
+	}
+
+	got, err = recv(r3, 2)
+	if err != nil {
+		t.Fatalf("filtered-socket: %+v", err)
+	}
+
+	if got, want := strings.Join(got, ","), "01,03"; got != want {
+		t.Fatalf("r3 filter failed:\ngot= %q\nwant=%q\n", got, want)
+	}
+
+	got, err = recv(r4, 4)
+	if err != nil {
+		t.Fatalf("non-filtered socket: %+v", err)
+	}
+
+	if got, want := strings.Join(got, ","), "00,01,02,03"; got != want {
+		t.Fatalf("r4 nofilter failed:\ngot= %q\nwant=%q\n", got, want)
 	}
 }
 
