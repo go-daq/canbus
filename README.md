@@ -1,6 +1,7 @@
 # canbus
 
-[![Build Status](https://github.com/go-daq/canbus/workflows/CI/badge.svg)](https://github.com/go-daq/canbus/actions)
+[![GitHub release](https://img.shields.io/github/release/go-daq/canbus.svg)](https://github.com/go-daq/canbus/releases)
+[![CI](https://github.com/go-daq/canbus/workflows/CI/badge.svg)](https://github.com/go-daq/canbus/actions)
 [![codecov](https://codecov.io/gh/go-daq/canbus/branch/main/graph/badge.svg)](https://codecov.io/gh/go-daq/canbus)
 [![GoDoc](https://godoc.org/github.com/go-daq/canbus?status.svg)](https://godoc.org/github.com/go-daq/canbus)
 [![License](https://img.shields.io/badge/License-BSD--3-blue.svg)](https://github.com/go-daq/canbus/blob/main/LICENSE)
